@@ -1,0 +1,764 @@
+---
+title: "PROJET DE R"
+author: "Abdoulaye NDIAYE ISE1-ECO"
+date: La date actuelle est `r format(Sys.Date(), "%Y-%m-%d")`.
+output: 
+  pdf_document: 
+    toc_depth: 4
+    number_sections: yes
+    toc: yes
+    fig_caption: yes
+header-includes: 
+  - \usepackage{pdfpages}
+  - \usepackage{graphicx}
+---
+
+```{r setup, include= TRUE}
+```
+
+\includepdf{pagedegarde.pdf}
+
+Dans le cadre du cours du Cours de Projet Statistique sous R, il nous a été demandé de réalié un travaillé pour appliqué sur le logiciel R les différentes notions vues en classe 
+Pour cela, une base de données a été mis à notre disposition.
+
+#L'objectif de l'enquête:
+Cette enquête vise à identifier et à caractériser des bioénergies durables pour les petites et moyennes entreprises (PME) agroalimentaires d’Afrique de l’Ouest.
+
+# PARTIE1
+## Préparation des données
+### 1.1 Description
+### 1.2 Importation et mise en forme
+```{r}
+library(readxl)
+library(dplyr)
+library(kableExtra)
+projet<- read_excel("Base_Partie 1.xlsx")  ##importation de la base de donées
+print(projet)#Afficher la base de données
+```
+
+### Selection les variables mentionnees dans la section description.
+
+```{r}
+library(dplyr)
+variables_manquantes <- projet %>%
+  select_if(function(row) any(is.na(row))) %>%
+  colnames()
+print(variables_manquantes)
+```
+
+###	Faites un tableau qui resume les valeurs manquantes par variable
+
+```{r}
+library(knitr)
+library(dplyr)
+library(kableExtra)
+table_valeurs_manquantes <- colSums(is.na(projet))
+table_valeurs_manquantes %>% kable(format = "latex",caption = " Tableau des valeurs manquantes")
+print(table_valeurs_manquantes)
+kable(table_valeurs_manquantes)
+```
+
+
+###•	Vérifier s’il y a des valeurs manquantes pour la variable key dans la base projet. Si oui, identifier la (ou les) PME concernée(s).
+
+
+### 1.3 Création de variables
+```{r}
+names(projet)[names(projet) == "q1"] <- "region"
+names(projet)[names(projet) == "q2"] <- "departement"
+names(projet)[names(projet) == "q23"] <- "sexe"
+```
+
+
+### •	Créer la variable sexe_2 qui vaut 1 si sexe égale à Femme et 0 sinon.
+```{r}
+projet$sexe_2 <- ifelse(projet$sexe == "Femme", 1, 0)## La fonction ifelse vérifie si sexe est égale à femme et renvoie 1 si c'est le cas
+```
+
+### •	Créer un data.frame nommé langues qui prend les variables key et les variables correspondantes décrites plus haut.
+```{r}
+variables_langues <- grep("^q24a_",names(projet), value = TRUE)
+langues <- projet[c("key", variables_langues)]
+```
+
+
+###•	Créer une variable parle qui est égale au nombre de langue parlée par le dirigeant de la PME.
+```{r}
+library(dplyr)
+langues$parle <- rowSums(!is.na(langues[, variables_langues]))
+```
+
+
+### Sélectionnez uniquement les variables key et parle, l’objet de retour sera langues
+```{r}
+library(dplyr)
+langues <- langues[, c("key","parle")]
+print(langues)
+```
+
+###•	Merger les data.frame projet et langues:
+```{r}
+tbl_merge <- merge(projet, langues, by = "key")
+dim(tbl_merge )
+```
+
+## 2 Analyses descriptives 
+
+### Répartition des PME selon le sexe
+```{r}
+library(kableExtra)
+repartition_sexe <- table(projet$sexe)
+print("Répartition des PME selon le sexe :")
+print(repartition_sexe)
+kable(repartition_sexe)
+```
+
+```{r}
+# Créer un vecteur de données
+ repartition_sexe<- c(191, 59)
+
+# Créer un vecteur d'étiquettes pour les barres
+labels <- c("HOMMES", "FEMMES")
+barplot(repartition_sexe, names.arg = labels, col = "tomato", main = "SEXE DU DIRIGEANT DE LA PME", xlab = "GENRE", ylab = "Valeurs")
+```
+
+### Répartition des PME selon le niveau d'instruction
+```{r}
+table_niveau_instruction <- table(projet$q25)
+print("Répartition des PME selon le niveau d'instruction:")
+print(table_niveau_instruction)
+```
+
+
+### Répartition des PME selon le statut juridique
+```{r}
+table_statut_juridique <- table(projet$q12)
+print("Répartition des PME selon le statut juridique:")
+print(table_statut_juridique)
+```
+```{r}
+library(ggplot2)
+p <- ggplot(data = as.data.frame(table_statut_juridique), aes(x = "", y = Freq, fill = names(table_statut_juridique))) +
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  labs(title = "Répartition des PME selon le propriétaire/locataire")
+
+# Affichez le diagramme
+print(p)
+```
+
+
+### Répartition des PME selon le propriétaire/locataire
+```{r}
+table_proprietaire_locataire <- table(projet$q81)
+print("Répartition des PME selon le propriétaire/locataire:")
+print(table_proprietaire_locataire)
+```
+### Réprésentation graphique en diagramme circulaire
+
+```{r}
+library(ggplot2)
+p <- ggplot(data = as.data.frame(table_proprietaire_locataire), aes(x = "", y = Freq, fill = names(table_proprietaire_locataire))) +
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  labs(title = "Répartition des PME selon le propriétaire/locataire")
+
+# Affichez le diagramme
+print(p)
+```
+
+
+
+### Répartition des PME selon le statut juridique et le sexe
+#Nous allons d'abord labéliser les variables q12  et q23  
+```{r}
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q12"] <- "Statut juridique"
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(gtsummary)
+table1<-projet%>%
+  tbl_cross(
+    row = `Statut juridique`,
+    col = sexe,
+    percent = "row"
+  ) %>%
+  add_p(source_note = TRUE)
+```
+
+
+### Répartition des PME selon le niveau d'instruction et le sexe
+```{r}
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q25"] <- "niveau instruction"
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(gtsummary)
+table2<- projet%>%
+  tbl_cross(
+    col = `niveau instruction`,
+    row = sexe,
+    percent = "row"
+  ) %>%
+  add_p(source_note = TRUE)
+```
+```{r}
+library(flextable)
+tbl_merge(list(table2,table1))
+```
+
+
+### Répartition du propriétaire/locataire selon le sexe
+```{r}
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q81"] <- "proprietaire ou locataire"
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(gtsummary)
+projet%>%
+  tbl_cross(
+    col = 'proprietaire ou locataire',
+    row = `sexe`,
+    percent = "col"
+  ) %>%
+  add_p(source_note = TRUE)
+my_theme <-
+  list(
+    # round large p-values to two places
+    "pkgwide-fn:pvalue_fun" = function(x) style_pvalue(x, digits = 2),
+    "pkgwide-fn:prependpvalue_fun" = function(x) style_pvalue(x, digits = 2, prepend_p = TRUE),
+    # report median (IQR) and n (percent) as default stats in `tbl_summary()`
+    "tbl_summary-str:continuous_stat" = "{median} ({p25} - {p75})",
+    "tbl_summary-str:categorical_stat" = "{n} ({p})"
+  )
+
+set_gtsummary_theme(my_theme) #créer et appliquer le thème
+```
+
+
+
+### TABLEAUX STATISTIQUES
+#TABLE ARACHIDE
+```{r}
+projet<- read_excel("Base_Partie 1.xlsx")  ##importation de la base de donées
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q81"] <- "propietaire_locataire"
+names(projet)[names(projet) == "q25"] <- "niveau_instruction"
+names(projet)[names(projet) == "q12"] <- "statut_juridique"
+
+projet = dplyr::rename(projet,arachide=	filiere_1,
+                       anacarde=	filiere_2,
+
+                                    mangue=	filiere_3,riz=	filiere_4)
+#View(projet)
+#(projet)
+## filiÃ©re arachide
+B_arachide=projet[projet$arachide==1,]
+#(B_arachide)
+tbl_arachide <- B_arachide %>% 
+  tbl_summary(include = c(sexe,
+                          propietaire_locataire,
+                          niveau_instruction,
+                         statut_juridique ),
+              #label=list(Stat_juridique ~ "q12",
+                        # prop_loca~ "q81",
+                        # niv_instruction~"q25"), 
+              by=sexe,
+             # statistic = list(all_continuous()~ "{mean}",all_categorical() ~ "{p} %"),
+              #type=list(sexe="categorical",prop_loca="categorical"),
+              digits = list(all_continuous() ~ 1,
+                            all_categorical() ~ c(0, 1)))%>%
+  bold_labels() %>%
+  italicize_levels()
+# %>%
+# modify_header(list(label ~ "**Les Variables**"))
+tbl_arachide
+
+```
+
+#TABLE FILIERE ANACARDE
+```{r}
+projet<- read_excel("Base_Partie 1.xlsx")  ##importation de la base de donées
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q81"] <- "propietaire_locataire"
+names(projet)[names(projet) == "q25"] <- "niveau_instruction"
+names(projet)[names(projet) == "q12"] <- "statut_juridique"
+
+projet = dplyr::rename(projet,arachide=	filiere_1,
+                       anacarde=	filiere_2,
+
+                                    mangue=	filiere_3,riz=	filiere_4)
+#View(projet)
+#(projet)
+## filiÃ©re anacarde
+B_anacarde=projet[projet$anacarde==1,]
+#(B_arachide)
+tbl_anacarde <- B_anacarde %>% 
+  tbl_summary(include = c(sexe,
+                          propietaire_locataire,
+                          niveau_instruction,
+                         statut_juridique ),
+              #label=list(Stat_juridique ~ "q12",
+                        # prop_loca~ "q81",
+                        # niv_instruction~"q25"), 
+              by=propietaire_locataire,
+             # statistic = list(all_continuous()~ "{mean}",all_categorical() ~ "{p} %"),
+              #type=list(sexe="categorical",prop_loca="categorical"),
+              digits = list(all_continuous() ~ 1,
+                            all_categorical() ~ c(0, 1)))%>%
+  bold_labels() %>%
+  italicize_levels()
+# %>%
+# modify_header(list(label ~ "**Les Variables**"))
+tbl_anacarde
+```
+
+#TABLE FILIERE MANGUE
+
+```{r}
+projet<- read_excel("Base_Partie 1.xlsx")  ##importation de la base de donées
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q81"] <- "propietaire_locataire"
+names(projet)[names(projet) == "q25"] <- "niveau_instruction"
+names(projet)[names(projet) == "q12"] <- "statut_juridique"
+
+projet = dplyr::rename(projet,arachide=	filiere_1,
+                       anacarde=	filiere_2,
+
+                                    mangue=	filiere_3,riz=	filiere_4)
+#View(projet)
+#(projet)
+## filiÃ©re mangue
+B_mangue=projet[projet$mangue==1,]
+#(B_mangue)
+tbl_mangue <- B_mangue %>% 
+  tbl_summary(include = c(sexe,
+                          propietaire_locataire,
+                          niveau_instruction,
+                         statut_juridique ),
+              #label=list(Stat_juridique ~ "q12",
+                        # prop_loca~ "q81",
+                        # niv_instruction~"q25"), 
+              by=niveau_instruction,
+             # statistic = list(all_continuous()~ "{mean}",all_categorical() ~ "{p} %"),
+              #type=list(sexe="categorical",prop_loca="categorical"),
+              digits = list(all_continuous() ~ 1,
+                            all_categorical() ~ c(0, 1)))%>%
+  bold_labels() %>%
+  italicize_levels()
+# %>%
+# modify_header(list(label ~ "**Les Variables**"))
+tbl_mangue
+
+```
+
+#TABLE FILIERE RIZ
+
+```{r}
+projet<- read_excel("Base_Partie 1.xlsx")  ##importation de la base de donées
+names(projet)[names(projet) == "q23"] <- "sexe"
+names(projet)[names(projet) == "q81"] <- "propietaire_locataire"
+names(projet)[names(projet) == "q25"] <- "niveau_instruction"
+names(projet)[names(projet) == "q12"] <- "statut_juridique"
+
+projet = dplyr::rename(projet,arachide=	filiere_1,
+                       anacarde=	filiere_2,
+
+                                    mangue=	filiere_3,riz=	filiere_4)
+#View(projet)
+#(projet)
+## filiÃ©re riz
+B_riz=projet[projet$riz==1,]
+#(B_riz)
+tbl_riz <- B_riz %>% 
+  tbl_summary(include = c(sexe,
+                          propietaire_locataire,
+                          niveau_instruction,
+                         statut_juridique ),
+              #label=list(Stat_juridique ~ "q12",
+                        # prop_loca~ "q81",
+                        # niv_instruction~"q25"), 
+              by=statut_juridique,
+             # statistic = list(all_continuous()~ "{mean}",all_categorical() ~ "{p} %"),
+              #type=list(sexe="categorical",prop_loca="categorical"),
+              digits = list(all_continuous() ~ 1,
+                            all_categorical() ~ c(0, 1)))%>%
+  bold_labels() %>%
+  italicize_levels()
+# %>%
+# modify_header(list(label ~ "**Les Variables**"))
+tbl_riz
+
+```
+
+
+#TABLEAUX MERGER 
+
+
+```{r}
+```
+
+# UN PEU DE CARTOGRAPHIE
+
+```{r}
+#Chargement des packages nécessaires
+library(dplyr)
+library(tidyr)
+library(gtsummary)
+library(lubridate)
+library(kableExtra)
+library(sf)
+library(ggplot2)
+library(sf)
+```
+
+#Réprésentation spatiale des PME suivant le sexe
+```{r}
+ projet_map<-st_as_sf(projet,coords = c("gps_menlongitude","gps_menlatitude"),crs=4326)
+ 
+ # contours
+ sen_contours <- st_read("Sen/Limite_Région.shp")
+ names(sen_contours)[1] <-"region" 
+ ggplot()+
+   geom_sf(data=sen_contours,fill="yellow",color="black")+
+   geom_sf(data=projet_map,aes(color=sexe),size=2.5)+
+   geom_sf_text(data=sen_contours,aes(label=region),size=2.5)+
+   scale_color_manual(values = c("black", "green")) +
+ theme_void()+
+ theme(legend.position = "right")+
+ labs(title="carte des PME par sexe",color="sexe")
+#title("Carte du Sénégal avec les régions")
+```
+```{r}
+names(projet)[names(projet) == "q25"] <- "niveau d'instruction"
+```
+
+
+### Représentation spatiale des PME suivant le niveau d'instruction
+```{r}
+projet_map<-st_as_sf(projet,coords = c("gps_menlongitude","gps_menlatitude"),crs=4326)
+ 
+ # contours
+ sen_contours <- st_read("Sen/Limite_Région.shp")
+ names(sen_contours)[1] <-"region" 
+ ggplot()+
+   geom_sf(data=sen_contours,fill="white",color="black")+
+   geom_sf(data=projet_map,aes(color= "niveau_instruction"),size=2.5)+
+   geom_sf_text(data=sen_contours,aes(label=region),size=2.5)+
+   scale_color_manual(values = c("black", "green")) +
+ theme_void()+
+ theme(legend.position = "right")+
+ labs(title="carte des PME par sexe",color="niveau d'instruction")
+#title("Carte du Sénégal avec les régions")
+```
+
+### Chargement des données
+```{r}
+library(readxl)
+library(dplyr)
+library(sp)
+library(sf)
+base<- read_excel("Base_Partie 1.xlsx")
+```
+
+# chargement des données du senegal gadm
+
+```{r}
+projet_map <- st_as_sf(projet, coords = c("gps_menlongitude", "gps_menlatitude"), crs = 4326)
+class(projet_map)
+```
+
+
+
+### Charger les données sur le Sénégal
+```{r}
+Senegal <- sf::st_read("gadm41_SEN.gpkg")
+```
+
+
+
+### Transformer le data.frame en données géographiques
+```{r}
+library(ggplot2)
+library(sf)
+projet<- st_as_sf(projet, coords = c("gps_menlongitude", "gps_menlatitude"), crs =  "+proj=gps_menlongitudegps_menlatitude +datum=WGS84")
+plot(projet["geometry"])
+```
+#Données spaciales du Sénégal
+```{r}
+head(Senegal, 4)
+```
+#Carte du Sénégal
+```{r}
+plot(Senegal[])
+```
+
+# PARTIE 2
+
+## Nettoyage et gestion de données
+#Importation de la base
+
+```{r}
+#Importation de la fichier Base_Partie 2.xlsx qui est de type excel
+#Data se trouve à la feuille 1 du fichier
+Base2 <- read_excel("Base_Partie 2.xlsx", sheet = 1)
+#District se trouve à la feuille 2 du fichier
+district <- read_excel("Base_Partie 2.xlsx", sheet = 2)
+#Codebook se trouve à la feuille 3 du fichier
+codebook <- read_excel("Base_Partie 2.xlsx", sheet = 3)
+#Renommons les variables comme on avait fait avant
+Base2 <- Base2 %>%dplyr::rename(destination = country_destination)
+```
+
+```{r}
+library(readxl)
+library(dplyr)
+Base2<- read_excel("Base_Partie 2.xlsx",1)
+```
+
+###•	Rénommer la variable “country_destination” en “destination” 
+
+```{r}
+Base2<-Base2 %>%
+rename(destination=country_destination)
+```
+
+
+
+```{r}
+Base2$destination<-ifelse(Base2$destination<0,NA,Base2$destination)
+print(Base2$destination)
+kable(Base2$destination)
+```
+```{r}
+which(is.na(Base2$destination))
+```
+
+#définition les valeurs negatives comme manquantes.
+
+```{r}
+Base2$destination<-ifelse(Base2$destination<0,NA,Base2$destination)
+print(Base2$destination)
+```
+
+#•	Créer une nouvelle variable contenant des tranches d’âge de 5 ans en utilisant la variable “age”.
+```{r}
+library(kableExtra)
+attach(Base2)
+##Recuperation du premier quartile
+a<-quantile(Base2$age)[2]
+##Recuperation du premier quartile
+b<-quantile(Base2$age)[4]
+##calcul de la borne inferieur
+born_inf=a-1.5*(b-a)
+##calcul de la borne superieur
+born_sup=b+1.5*(b-a)
+## Detection et imputation des valeurs aberrantes par la moyenne des ages
+Base2$age_aberr<-ifelse((Base2$age<born_inf)|(Base2$age>born_sup),mean(Base2$age),Base2$age)
+#Nous allons à present recoder la variable age en une variable categorielle.
+attach(Base2)
+##creation des bornes de la tranche d'age
+ecart<-5
+bornes<-seq(min(Base2$age_aberr),max(Base2$age_aberr),by=ecart)
+##decoupage de la variable age des tranches d'age
+Base2$age_categ<-cut(Base2$age_aberr,breaks = bornes)
+kable(Base2$age_categ)
+```
+
+
+
+#Créer une nouvelle variable contenant le nombre d’entretiens réalisés par chaque agent recenseur
+
+
+```{r}
+library(dplyr)
+
+# Utilisation de la chaîne de transformation (pipe %>%)
+Base2 <- Base2 %>%
+  group_by(enumerator) %>%
+  mutate(nbre_entretien = n()) %>%
+  distinct()
+
+# Créer un tableau récapitulatif du nombre d'entretiens par enquêteur
+table_entretiens <- table(Base2$enumerator, Base2$nbre_entretien)
+
+# Afficher le tableau récapitulatif
+print(table_entretiens)
+table(table_entretiens)
+```
+
+#•	Créer une nouvelle variable qui affecte aléatoirement chaque répondant à un groupe de traitement (1) ou de controle (0).
+```{r}
+set.seed(42) # Pour reproduire les mêmes résultats aléatoires
+projet$groupe_traitement <- sample(0:1, nrow(projet), replace = TRUE)
+table(projet$groupe_traitement )
+```
+
+#•	Fusionner la taille de la population de chaque district (feuille 2) avec l’ensemble de données (feuille 1) afin que toutes les personnes interrogées aient une valeur correspondante représentant la taille de la population du district dans lequel elles vivent.
+
+```{r}
+partie2_feuille2<- read_excel("Base_Partie 2.xlsx",sheet="district")
+partie2_feuille2<-data.frame(partie2_feuille2)
+
+# Fusionner les données
+partie2_taill<-Base2%>%
+merge(partie2_feuille2,by="district")## la fonction fusionne  les bases de données
+print(partie2_feuille2)
+```
+
+
+#•	Calculer la durée de l’entretien et indiquer la durée moyenne de l’entretien par enquêteur.
+```{r}
+Base2<- read_excel("Base_Partie 2.xlsx")
+library(lubridate)
+partie2_taill<-partie2_taill %>%
+mutate(
+dure_entr = time_length(
+interval(
+start = starttime,
+end = endtime
+),
+unit = "hour"
+)
+)
+#select(nom, date_naissance, age) %>%
+#glimpse()
+colnames(partie2_taill)
+partie2_taill%>% group_by(enumerator)%>%
+transmute(moyenne=mean(dure_entr))%>% distinct()%>%
+kable()
+```
+
+
+
+#•	Renommez toutes les variables de l’ensemble de données en ajoutant le préfixe “endline_” à l’aide d’une boucle.
+```{r}
+## recueillir le nombre de colonne de la base
+n<-ncol(partie2_taill)
+##une boucle qui va parcourir le nombre de ligne pour ajouter les prefixes
+for (i in 1:n) {
+colnames(partie2_taill)[i]<-paste("endline_",colnames(partie2_taill)[i],sep ="" )
+}
+```
+
+#Tableau récapitulatif contenant l’âge moyen et le nombre moyen d’enfants par district
+
+```{r}
+Base2<- read_excel("Base_Partie 2.xlsx")
+Base2 %>%
+  group_by(district)%>%
+  dplyr::summarise(mean(age), sum(mean(children_num)))
+```
+
+```{r}
+t.test(Base2$age ~ Base2$sex, Base2 = Base2[-46,])
+```
+
+
+
+#Créer un nuage de points de l’âge en fonction du nombre d’enfants 
+
+# PARTIE3
+#SHINY
+
+```{r}
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+library(sp)
+library(ggplot2)
+library(dplyr)
+library(shiny)
+library(leaflet)
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+# Charger les donnÃ©es gÃ©ographiques de l'Afrique de l'Ouest
+ne_countries_data <- ne_countries(scale = "medium", continent = "Africa")
+west_africa <- subset(ne_countries_data, subregion == "Western Africa")
+
+# Charger les donnÃ©es de base en dehors de la fonction server
+base <- read.csv("ACLED-Western_Africa.csv")
+
+ui <- fluidPage(
+  # titre de l'application
+  titlePanel("shiny map"),
+  
+  # Sidebar with a slider input for number of bins 
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = "evenement",
+        label = "SÃ©lectionnez un evenement",
+        choices = c(unique(base$type)),
+        selected = "Protests",
+        multiple = TRUE
+      
+      ),
+      selectInput(
+        inputId = "pays",
+        label = "SÃ©lectionnez un pays",
+        choices = c(unique(base$pays)),
+        selected = c(unique(base$pays))[sample(1:length(unique(base$pays)), 1)],
+        multiple = TRUE
+     
+      ),
+      selectInput(
+        inputId = "annee",
+        label = "SÃ©lectionnez une annee",
+        choices = c(unique(base$annee)),
+        selected = "2023",
+        multiple = TRUE
+      ),
+      
+     
+        
+    ),
+    # Show a plot of the generated distribution
+    mainPanel(
+      leafletOutput(outputId = "map", width = "100%", height = "720px")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  filtered_data <- reactive({
+    subset(base, pays %in% input$pays & type %in% input$evenement & annee %in% input$annee)
+  })
+  
+  output$map <- renderLeaflet({
+    filtered_west_africa <- west_africa[west_africa$name %in% input$pays]
+    
+    leaflet() %>%
+      addProviderTiles(providers$Stamen.Toner) %>%
+      addPolygons(data = ne_countries(type = "countries", country = input$pays), fillColor = "green", color = "gray", fillOpacity = 0.6) %>%
+ 
+    
+      addCircleMarkers(data = filtered_data(),
+                       lat = ~latitude,
+                       lng = ~longitude,
+                       radius = 3,
+                       opacity = 0.7)
+  })
+}
+
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
+
+
+
+
